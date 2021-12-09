@@ -46,35 +46,75 @@ class_diag <- function(score, truth, positive, cutoff=.5){
 
 # Mining, Classification, Prediction
 
-## Name and EID here
+## Joshua Nahm (jkn557)
 
 ### Introduction 
 
-Paragraph or two introducing your datasets and variables, why they are interesting to you, etc. See instructions for more information
+The dataset that was selected contains exam and course grade data from a statistics class. This data was retrieved from the Github source from the vincentarelbundock website. Within this dataset, there are a total of 7 variables: `number`, `semester`, `sex`, `exam1`, `exam2`, `exam3`, and `course_grade`. The variables that will be specifically investigated are `sex`, `exam1`, `exam2`, `exam3`, and `course_grade` with `sex` serving as the binary variable. The `exam1`, `exam2`, and `exam3` variables are numeric variables that indicate the scores of the respective exams for each student during the semester. On the other hand, the `course_grade` variable represents the final grade of the student. In total, there are 232 observations, and there are 187 observations for the Man group and 45 observations for the Woman group.
 
 ```{R}
 library(tidyverse)
 # read your datasets in here, e.g., with read_csv()
-
+grades <- read_csv("exam_grades.csv")
+grades <- grades %>% select(1, 3:7) %>% na.omit
 # if your dataset needs tidying, do so here
 
 # any other code here
+glimpse(grades)
+grades %>% group_by(sex) %>% count()
 ```
 
 ### Cluster Analysis
 
 ```{R}
 library(cluster)
+library(GGally)
 # clustering code here
+dat1 <- grades %>% select(exam1, exam2, exam3, course_grade)
+sil_width <- vector()
+for (i in 2:10) {
+    pam_fit <- pam(dat1, k = i)
+    sil_width[i] <- pam_fit$silinfo$avg.width
+}
+ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name="k",breaks=1:10)
+
+grades_pam <- dat1 %>% pam(k = 2)
+plot(grades_pam, which = 2)
+grades_pam$silinfo$avg.width
+
+grades %>% slice(grades_pam$id.med)
+
+grades_clus <- grades %>% mutate(cluster = factor(grades_pam$clustering))
+ggpairs(grades_clus, cols = 2:5, aes(color = cluster))
 ```
 
 Discussion of clustering here
+
     
     
 ### Dimensionality Reduction with PCA
 
 ```{R}
 # PCA code here
+grades %>% select(3:6) -> grades_select
+princomp(grades_select, cor=T) -> pca1
+summary(pca1, loadings = T)
+
+eigval <- pca1$sdev^2
+varprop = round(eigval / sum(eigval), 2)
+
+ggplot() + geom_bar(aes(y=varprop, x=1:4), stat="identity") + xlab("") + geom_path(aes(y=varprop, x=1:4)) + 
+  geom_text(aes(x=1:4, y=varprop, label=round(varprop, 2)), vjust=1, col="white", size=5) + 
+  scale_y_continuous(breaks=seq(0, .6, .2), labels = scales::percent) + 
+  scale_x_continuous(breaks=1:10)
+
+round(cumsum(eigval) / sum(eigval), 2)
+
+cor(pca1$scores) %>% round(10)
+
+grades %>% as.data.frame %>% select(studentid) %>% mutate(PC1 = pca1$scores[, 
+    1], PC2 = pca1$scores[, 2]) %>% ggplot(aes(PC1, 
+    PC2, color = studentid)) + geom_point()
 ```
 
 Discussions of PCA here. 
@@ -83,10 +123,41 @@ Discussions of PCA here.
 
 ```{R}
 # linear classifier code here
+logistic_fit <- glm(sex=="Man" ~ exam1 + exam2 + exam3 + course_grade, data = grades, family="binomial")
+logistic_fit
+
+prob_reg <- predict(logistic_fit, type = "response")
+class_diag(prob_reg, truth = grades$sex, positive = "Man")
+
+y <- grades$sex
+y <- factor(y, levels=c("Man","Woman"))
+y_hat <- sample(c("Man","Woman"), size=length(y), replace=T)
+
+y_hat <- factor(y_hat, levels=c("Man","Woman"))
+table(actual=y, predicted = y_hat) %>% addmargins
 ```
 
 ```{R}
 # cross-validation of linear classifier here
+k=10
+data<-sample_frac(grades)
+folds <- rep(1:10, length.out=nrow(data))
+
+diags<-NULL
+
+i=1
+for(i in 1:k){
+train<-data[folds!=i,] 
+test<-data[folds==i,] 
+truth<-test$sex
+
+fit <- glm(as.factor(sex) ~ exam1 + exam2 + exam3 + course_grade, data = train, family = "binomial")
+
+probs <- predict(fit, newdata = test, type = "response")
+
+diags<-rbind(diags,class_diag(probs,truth, positive="Man")) }
+
+summarize_all(diags,mean)
 ```
 
 Discussion here
@@ -96,10 +167,40 @@ Discussion here
 ```{R}
 library(caret)
 # non-parametric classifier code here
+knn3(sex=="Man" ~ exam1 + exam2 + exam3 + course_grade, data=grades)
+
+knn_fit <- knn3(factor(sex=="Man",levels=c("TRUE","FALSE")) ~ exam1 + exam2 + exam3 + course_grade, data=grades, k=5)
+y_hat_knn <- predict(knn_fit,grades)
+table(truth = factor(grades$sex=="Man", levels=c("TRUE","FALSE")),
+  prediction= factor(y_hat_knn[,1]>.5, levels=c("TRUE","FALSE")))
+
+prob_knn <- predict(knn_fit, newdata = grades)
+class_diag(prob_knn[,2], truth = grades$sex, positive = "Man")
+
 ```
 
 ```{R}
 # cross-validation of np classifier here
+k=10
+
+data<-sample_frac(grades)
+folds <- rep(1:k, length.out=nrow(data))
+
+diags<-NULL
+
+i=1
+for(i in 1:k){
+train<-data[folds!=i,] 
+test<-data[folds==i,] 
+truth<-test$sex
+
+fit <- knn3(sex~exam1 + exam2 + exam3 + course_grade, data = train)
+
+probs <- predict(fit, newdata = test)[,2]
+
+diags<-rbind(diags,class_diag(probs,truth, positive="Man")) }
+
+summarize_all(diags,mean)
 ```
 
 Discussion
@@ -109,10 +210,29 @@ Discussion
 
 ```{R}
 # regression model code here
+fit <- lm(course_grade~exam1 + exam2 + exam3,data=grades)
+yhat<-predict(fit) 
+mean((grades$course_grade-yhat)^2) 
 ```
 
 ```{R}
 # cross-validation of regression model here
+set.seed(1234)
+k=5
+
+data<-grades[sample(nrow(grades)),]
+folds<-cut(seq(1:nrow(grades)),breaks=k,labels=F)
+
+diags<-NULL
+
+for(i in 1:k){
+  train<-data[folds!=i,]
+  test<-data[folds==i,]
+  fit<-lm(course_grade~.,data=train)
+  yhat<-predict(fit,newdata=test)
+  diags<-mean((test$course_grade-yhat)^2)
+}
+mean(diags) 
 ```
 
 Discussion
@@ -121,10 +241,15 @@ Discussion
 
 ```{R}
 library(reticulate)
+use_python("/usr/bin/python3", required = F)
+hi<-"Hello"
+cat(c(hi,py$hi))
 ```
 
 ```{python}
 # python code here
+hi="world"
+print(r.hi,hi)
 ```
 
 Discussion
