@@ -88,7 +88,9 @@ grades_clus <- grades %>% mutate(cluster = factor(grades_pam$clustering))
 ggpairs(grades_clus, cols = 2:5, aes(color = cluster))
 ```
 
-Discussion of clustering here
+Initially, after using the ggplot function, it was determined that the number of clusters in this dataset was 2. In terms of overall average silhouette width, the average silhouette width was found to be approximately 0.34, which is considered to be a weak structure and could be considered artificial as it falls within the range of 0.26 and 0.50. The `sex` Man serves as both medoids. They are most similar on `exam1` and most different on `exam3`. 
+
+Based on the function ggpairs, `exam3` appears to show the greatest difference between clusters, and `exam1` appears to show the least difference between clusters. Cluster 2, or the blue cluster, appears to have lesser `exam1`, lesser `exam2`, lesser `exam3`, and lesser `course_grade`.
 
     
     
@@ -109,6 +111,7 @@ ggplot() + geom_bar(aes(y=varprop, x=1:4), stat="identity") + xlab("") + geom_pa
   scale_x_continuous(breaks=1:10)
 
 round(cumsum(eigval) / sum(eigval), 2)
+eigval
 
 cor(pca1$scores) %>% round(10)
 
@@ -117,7 +120,9 @@ grades %>% as.data.frame %>% select(studentid) %>% mutate(PC1 = pca1$scores[,
     PC2, color = studentid)) + geom_point()
 ```
 
-Discussions of PCA here. 
+Based on the rules of thumb, we can assume that the first two PCs will be retained. Although it should be noted that the second PC does not have an eigenvalue greater than 1 as seen by Kaiser's rule. The first two PCs represent 82% of the total variance. The loadings for PC1 indicate that a higher scores on PC1 lead to higher scores in `exam1`, `exam2`, `exam3`, and `course_grade`. Higher scores on PC2 indicate higher scores in `exam1` and lower scores in `exam2` and `exam3`. 
+
+Based on the graph as a whole, it appears that there is not a correlation between PC1 and PC2. However, it appears that the individuals with higher student IDs have higher grades in PC2, and the individuals with lower student IDs have lower grades in PC1.
 
 ###  Linear Classifier
 
@@ -160,7 +165,7 @@ diags<-rbind(diags,class_diag(probs,truth, positive="Man")) }
 summarize_all(diags,mean)
 ```
 
-Discussion here
+In this dataset, the binary variable was `sex`, so the response was predicted from the variables `exam1`, `exam2`, `exam3`, and `course_grade`. Utilizing the glm function in linear classification, an AUC value of 0.6746 was calculated. Such a value results in a poor interpretation because it falls within the range 0.6 to 0.7. On the other hand, when training the model to the entire dataset through a cross-validation of the linear classifier, the auc value becomes 0.436, which results in a worse interpretation than the former. To continue, after perfoming the k-fold CV, there appears to be a noticeable decrease in AUC when predicting out of sample. Because there is a significant decrease in auc values from 0.6746 to 0.436, it is evident that there are signs of overfitting .
 
 ### Non-Parametric Classifier
 
