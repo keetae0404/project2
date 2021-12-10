@@ -88,7 +88,7 @@ grades_clus <- grades %>% mutate(cluster = factor(grades_pam$clustering))
 ggpairs(grades_clus, cols = 2:5, aes(color = cluster))
 ```
 
-Initially, after using the ggplot function, it was determined that the number of clusters in this dataset was 2. In terms of overall average silhouette width, the average silhouette width was found to be approximately 0.34, which is considered to be a weak structure and could be considered artificial as it falls within the range of 0.26 and 0.50. The `sex` Man serves as both medoids. They are most similar on `exam1` and most different on `exam3`. 
+Initially, after using the ggplot function, it was determined that the number of clusters in this dataset was 2. In terms of overall average silhouette width, the average silhouette width was found to be approximately 0.34, which is considered to be a weak structure and could be considered artificial as it falls within the range of 0.26 and 0.50. Between the two clusters, the first cluster is wider than the second. The `sex` Man serves as both medoids. They are most similar on `exam1` and most different on `exam3`. 
 
 Based on the function ggpairs, `exam3` appears to show the greatest difference between clusters, and `exam1` appears to show the least difference between clusters. Cluster 2, or the blue cluster, appears to have lesser `exam1`, lesser `exam2`, lesser `exam3`, and lesser `course_grade`.
 
@@ -122,7 +122,7 @@ grades %>% as.data.frame %>% select(studentid) %>% mutate(PC1 = pca1$scores[,
 
 Based on the rules of thumb, we can assume that the first two PCs will be retained. Although it should be noted that the second PC does not have an eigenvalue greater than 1 as seen by Kaiser's rule. The first two PCs represent 82% of the total variance. The loadings for PC1 indicate that a higher scores on PC1 lead to higher scores in `exam1`, `exam2`, `exam3`, and `course_grade`. Higher scores on PC2 indicate higher scores in `exam1` and lower scores in `exam2` and `exam3`. 
 
-Based on the graph as a whole, it appears that there is not a correlation between PC1 and PC2. However, it appears that the individuals with higher student IDs have higher grades in PC2, and the individuals with lower student IDs have lower grades in PC1.
+Based on the graph as a whole, it appears that there is not a correlation between PC1 and PC2. However, it also appears that the individuals with higher student IDs have higher grades in PC2, and the individuals with lower student IDs have lower grades in PC1.
 
 ###  Linear Classifier
 
@@ -165,7 +165,7 @@ diags<-rbind(diags,class_diag(probs,truth, positive="Man")) }
 summarize_all(diags,mean)
 ```
 
-In this dataset, the binary variable was `sex`, so the response was predicted from the variables `exam1`, `exam2`, `exam3`, and `course_grade`. Utilizing the glm function in linear classification, an AUC value of 0.6746 was calculated. Such a value results in a poor interpretation because it falls within the range 0.6 to 0.7. On the other hand, when training the model to the entire dataset through a cross-validation of the linear classifier, the auc value becomes 0.436, which results in a worse interpretation than the former. To continue, after perfoming the k-fold CV, there appears to be a noticeable decrease in AUC when predicting out of sample. Because there is a significant decrease in auc values from 0.6746 to 0.436, it is evident that there are signs of overfitting .
+In this dataset, the binary variable was `sex`, so the response was predicted from the variables `exam1`, `exam2`, `exam3`, and `course_grade`. Utilizing the glm function in linear classification, an AUC value of 0.6746 was calculated. Such a value results in a poor interpretation because it falls within the range 0.6 to 0.7. This indicates that sex is poor in differentiating between `exam1`, `exam2`, `exam3`, and `course_grade`. On the other hand, when training the model to the entire dataset through a cross-validation of the linear classifier, the AUC value becomes 0.436, which results in a worse interpretation than the former as it is below the range of 0.5 to 0.6. To continue, after perfoming the k-fold CV, there appears to be a noticeable decrease in AUC when predicting out of sample. Because there is a significant decrease in AUC values from 0.6746 to 0.436, it is evident that there are signs of overfitting.
 
 ### Non-Parametric Classifier
 
@@ -195,9 +195,9 @@ diags<-NULL
 
 i=1
 for(i in 1:k){
-train<-data[folds!=i,] 
-test<-data[folds==i,] 
-truth<-test$sex
+  train<-data[folds!=i,] 
+  test<-data[folds==i,] 
+  truth<-test$sex
 
 fit <- knn3(sex~exam1 + exam2 + exam3 + course_grade, data = train)
 
@@ -208,7 +208,7 @@ diags<-rbind(diags,class_diag(probs,truth, positive="Man")) }
 summarize_all(diags,mean)
 ```
 
-Discussion
+Per an AUC value of 0.2446, the model appears to performing very badly because it falls below the range of 0.5 to 0.6. When predicting out of sample and after cross-validation of the non-parametric classifier, there does not appear a significant decrease but rather a significant increase from the AUC value of 0.2446 to an AUC value of 0.53459. This suggests that there were not any signs of overfitting. However, though there were improvements, an AUC value of 0.53459 is still considered bad as it is within the range of 0.5 to 0.6. Furthermore, when compared with the linear model in its cross-validation performance, the non-parametric model appears to be performing worse as the AUC values generally appear to be less. 
 
 
 ### Regression/Numeric Prediction
@@ -240,28 +240,31 @@ for(i in 1:k){
 mean(diags) 
 ```
 
-Discussion
+Prior to cross-validation with linear regression, the mean squared error (MSE) was found to be 18.41592, and after the cross-validation with linear regresssion, the MSE was found to be 17.25959. Both values seem to be relatively small, which indicates a lower prediction error within this dataset. Additionally, because the MSE is lower after cross-validation, there does not appear to be evidence that points toward an overfitting of the model.
 
 ### Python 
 
 ```{R}
 library(reticulate)
 use_python("/usr/bin/python3", required = F)
-hi<-"Hello"
-cat(c(hi,py$hi))
+
+final_average <- grades %>% summarize((py$course_average + mean(exam1) + mean(exam2) + mean(exam3)) / 4)
+final_average #this value does not show in the website due to the long calculation code, but the calculated value is 75.31271.
 ```
 
 ```{python}
 # python code here
-hi="world"
-print(r.hi,hi)
+import numpy as np
+grades = r.grades
+course_average = np.mean(grades["course_grade"])
+course_average
 ```
 
-Discussion
+For the chunk of Python code, a function in r, reticulate, was utilized in order to interactively use both R and Python by creating a variable called `course_average` that calculates the average grade among all students at the end of the class. In the chunk of R code, this `course_average` variable was shared from the Python code in order to find the mean of all of the mean grades for each exam and final course grade, or `final_average`.
 
 ### Concluding Remarks
 
-Include concluding remarks here, if any
+In this project, I utilized a dataset in order to make some calculations and analyses utilizing topics from clustering, dimensionality reduction, linear and non-parametric classifiers, cross-validations, regression/predictions, and Python. It was incredibly interesting to see how analyzing a simple dataset as exam grades in a class can yield such interesting results!
 
 
 
